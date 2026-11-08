@@ -27,3 +27,4 @@
 | `variants_mc_summary.csv` | 04 | 上述三种设置的比例对比 |
 
 设置在 `bridge_sim/ext.py: VARIANTS`；`Scenario.variant` 列记录每行用的设置。
+| `unified_worst_world_check.csv` | 临时检查 | 候选统一参数（`VARIANTS['unified']`：配准 0.08 保留，采样保护 0.02，安全余量 0）下 7 个桥长 × 8 个最坏世界的 filter / ekf3s / oracle |

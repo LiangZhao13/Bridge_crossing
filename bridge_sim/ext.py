@@ -285,6 +285,10 @@ VARIANTS = {
     'base':          dict(cfg={}, tight=False, zero_wall=False),
     'margins0':      dict(cfg=dict(map_bound=0., sample_guard=0., safety_margin=0.), tight=False, zero_wall=True),
     'tight':         dict(cfg=dict(water_speed_margin=0.05), tight=True, zero_wall=False),
+    # candidate single parameter set for the whole paper: chart registration 0.08 m kept as a
+    # real error term (truth wall shift stays within it), sample guard = max hull-point lateral
+    # speed x prediction step (checked in notebook 05), no extra safety margin.
+    'unified':       dict(cfg=dict(sample_guard=0.02, safety_margin=0.), tight=False, zero_wall=False),
     'tight_margins0': dict(cfg=dict(map_bound=0., sample_guard=0., safety_margin=0., water_speed_margin=0.05),
                            tight=True, zero_wall=True),
 }
