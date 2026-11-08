@@ -69,6 +69,7 @@ class Config:
     safety_margin: float = 0.0        # no extra margin beyond the error terms (unified set)
     sample_guard: float = 0.02        # max hull-point lateral speed (0.83 m/s) x 0.02 s prediction step
     min_progress_speed: float = 0.40  # required North ground speed in the rollout
+    admission_margin: float = 0.02    # gate needs margin >= this (recursive-feasibility buffer)
     speed_candidates: tuple = (0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0)  # tried at the gate
 
     @property
@@ -575,7 +576,7 @@ class PredictiveSafetyFilter:
             self.speed = U
             margin, ok = self.rollout(z, bound, t)
             table[U] = margin if ok else -np.inf
-            if ok and margin >= 0. and (best is None or margin > table[best]):
+            if ok and margin >= self.c.admission_margin and (best is None or margin > table[best]):
                 best = U
         if best is None:
             self.speed = self.c.speed
@@ -695,7 +696,7 @@ def run_case(c, truth_spec, strategy="ilos", gnss_always=False, fixed_gate_speed
                         guard.deadline = nav.last_fix + c.deadline_seconds
                         guard.speed = fixed_gate_speed
                         margin_g, progress = guard.rollout(z, bound, t)
-                        ok = bool(progress and margin_g >= 0.)
+                        ok = bool(progress and margin_g >= c.admission_margin)
                         speed_g = fixed_gate_speed if ok else None
                         table = {fixed_gate_speed: margin_g if progress else -np.inf}
                     ev.update(admitted=ok, entry_margin=margin_g, speed_table=table)

@@ -363,7 +363,7 @@ def run_case_ext(c, truth_spec, strategy="ilos", gnss_always=False, fixed_gate_s
                         guard.deadline = nav.last_fix + c.deadline_seconds
                         guard.speed = fixed_gate_speed
                         margin_g, progress = guard.rollout(z, bound, t)
-                        ok = bool(progress and margin_g >= 0.)
+                        ok = bool(progress and margin_g >= c.admission_margin)
                         speed_g = fixed_gate_speed if ok else None
                         table = {fixed_gate_speed: margin_g if progress else -np.inf}
                     ev.update(admitted=ok, entry_margin=margin_g, speed_table=table)
