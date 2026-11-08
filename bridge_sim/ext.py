@@ -235,9 +235,66 @@ class GaussianBound(ErrorBound):
 
 
 # --------------------------------------------------------------------------- closed loop
+class TightBound(ErrorBound):
+    """Tightened deterministic box (variant "tight"). Same terms as core.ErrorBound, still a
+    worst-case bound under A1-A2; one term is evaluated more tightly:
+      jet-gradient coupling: core uses the GLOBAL max |d(jet)/dN| everywhere; here the max
+      over the current North uncertainty interval [N - bN, N + bN] (outside the jet it is 0).
+    The water-speed margin in the heading term is a Config value (water_speed_margin) and is
+    set by the variant, not here."""
+    def copy(self):
+        b = TightBound(self.c, self.speed)
+        b.north, b.east, b.age, b.heading = self.north, self.east, self.age, self.heading
+        return b
+
+    def local_gradient(self, lo, hi):
+        c = self.c
+        a, b = (lo - c.jet_center)/c.jet_half_length, (hi - c.jet_center)/c.jet_half_length
+        a, b = max(a, -1.), min(b, 1.)
+        if a >= b:
+            return 0.
+        k = abs(c.jet_amplitude)*math.pi/(2*c.jet_half_length)
+        if a <= -.5 <= b or a <= .5 <= b:
+            return k
+        return k*max(abs(math.sin(math.pi*a)), abs(math.sin(math.pi*b)))
+
+    def step(self, north_est, dt, heading_est=0.):
+        from .core import jet_shape_max
+        c = self.c
+        surge_err = c.speed_error_floor + c.speed_error_ratio*self.speed
+        heading_part = (self.speed + c.water_speed_margin)*self.heading_error()
+        s_max = min(1., abs(math.sin(heading_est)) + self.heading_error())
+        d_north = surge_err + c.speed_error_lateral*s_max + heading_part + c.current_north_error_bound
+        lo, hi = north_est - self.north, north_est + self.north
+        jet = c.jet_amplitude_error_bound*jet_shape_max(lo, hi, c)
+        d_east = (surge_err*s_max + c.speed_error_lateral + heading_part + c.current_east_error_bound
+                  + jet + self.local_gradient(lo, hi)*self.north)
+        self.north += dt*d_north
+        self.east += dt*d_east
+        self.age += dt
+        self.heading += c.gyro_bound*dt
+
+
+# Experiment variants: margins removed and/or tightened bound. Applied to ALL methods alike.
+#   margins0: map_bound = sample_guard = safety_margin = 0, and the truth chart error
+#             (wall_shift) is set to 0 so that A1-A2 still hold without a chart margin.
+#   tight:    TightBound replaces ErrorBound for the proposed filter; water-speed margin
+#             0.20 -> 0.05 m/s (max water speed minus transit speed seen in the worst
+#             worlds is 0.012 m/s; checked again by coverage in notebook 04).
+VARIANTS = {
+    'base':          dict(cfg={}, tight=False, zero_wall=False),
+    'margins0':      dict(cfg=dict(map_bound=0., sample_guard=0., safety_margin=0.), tight=False, zero_wall=True),
+    'tight':         dict(cfg=dict(water_speed_margin=0.05), tight=True, zero_wall=False),
+    'tight_margins0': dict(cfg=dict(map_bound=0., sample_guard=0., safety_margin=0., water_speed_margin=0.05),
+                           tight=True, zero_wall=True),
+}
+
+
 def make_bound(kind, c, imu=None):
     if kind == 'box':
         return ErrorBound(c)
+    if kind == 'tight':
+        return TightBound(c)
     if kind == 'ekf':
         return GaussianBound(c)
     if kind == 'ins':
@@ -386,6 +443,7 @@ class Scenario:
     gyro_bias: float = 0.00055
     accel_bias_n: float = 0.0     # used only by the INS navigator (fraction of declared bound)
     accel_bias_e: float = 0.0
+    variant: str = 'base'         # key of VARIANTS
 
 
 DEFAULT_SCENARIO = Scenario(seed=42)
@@ -409,6 +467,8 @@ def sample_scenario(rng, seed, length=19.0, width=8.0):
 
 
 def make_case(s, base=BASE_CFG):
+    v = VARIANTS[getattr(s, 'variant', 'base')]
+    base = replace(base, **v['cfg'])
     c = replace(base, seed=s.seed, mapped_current_north=s.mapped_current_north,
                 mapped_current_east=s.mapped_current_east, jet_amplitude=s.jet_amplitude)
     c = bridge_case(c, s.length, s.width)
@@ -416,7 +476,7 @@ def make_case(s, base=BASE_CFG):
     c = replace(c, duration=max(base.duration, c.deadline_seconds + 30.0))
     ts = TruthSpec(jet_amplitude_error=s.jet_amplitude_error, current_north_bias=s.current_north_bias,
                    current_east_bias=s.current_east_bias, tide_amplitude=s.tide_amplitude,
-                   tide_frequency=s.tide_frequency, wall_shift=s.wall_shift,
+                   tide_frequency=s.tide_frequency, wall_shift=0. if v['zero_wall'] else s.wall_shift,
                    initial_cross_track=s.initial_cross_track, initial_heading_error=s.initial_heading_error)
     return c, ts
 
@@ -494,6 +554,8 @@ def evaluate(s, methods=('filter', 'ilos07', 'oracle'), imu=None):
             row.update(oracle(c, ts, s.gyro_bias))
             continue
         kw = dict(METHODS[m])
+        if VARIANTS[s.variant]['tight'] and kw.get('strategy') == 'filtered' and kw.get('bound_kind', 'box') == 'box':
+            kw['bound_kind'] = 'tight'
         if kw.get('nav') == 'ins':
             imu_ = kw.pop('imu', None) or imu or ImuSpec()
             kw['imu'] = imu_
@@ -542,6 +604,8 @@ def run_batch(scenarios, methods, imu=None, workers=4, progress_every=10, log_pa
 def gate_check(s, bound_kind='box', nav='model', imu=None):
     """Admission decision only (stops right after the gate). Cheap; used for maps."""
     c, ts = make_case(s)
+    if bound_kind == 'box' and VARIANTS[s.variant]['tight']:
+        bound_kind = 'tight'
     kw = dict(strategy='filtered', bound_kind=bound_kind, nav=nav, gyro_bias=s.gyro_bias, stop_after_gate=True)
     if nav == 'ins':
         imu = imu or ImuSpec()

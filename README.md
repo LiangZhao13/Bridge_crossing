@@ -6,6 +6,7 @@
 | `01_monte_carlo.ipynb` | Monte Carlo：随机入口状态与海流；错误放行率、误拒率、通过率、误差界覆盖率、认证丢失率 |
 | `02_length_sweep.ipynb` | 桥长扫描（8 m 宽）：能过比例、滤波器放行率/撞墙率、ILOS 成功率、EKF 3σ 放行率/撞墙率同图；桥宽 × 桥长认证图 |
 | `03_baselines.ipynb` | 对照组：EKF 3σ 裕度安全滤波、纯 INS 推算 + 安全滤波；INS 器件等级扫描 |
+| `04_margins_and_tight_bound.ipynb` | 去掉额外余量、收紧误差界后重跑：最坏世界中 EKF 3σ 撞墙，本文方法不撞 |
 | `bridge_sim/core.py` | 从主 notebook 原样拷贝的方法代码（不修改） |
 | `bridge_sim/fast.py` | 船模导数的等价加速（结果逐位一致） |
 | `bridge_sim/ext.py` | 实验扩展：可替换导航器/误差管的闭环、随机场景、事后“能过”标注、EKF 3σ 与纯 INS 误差管 |
