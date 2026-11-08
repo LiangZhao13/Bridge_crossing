@@ -9,6 +9,7 @@
 | `04_margins_and_tight_bound.ipynb` | 余量消融与误差界收紧（以统一参数为基准）；最坏世界中本文方法与 EKF 3σ 的闭环 |
 | `05_assumption_violated.ipynb` | 假设被违反：真实射流误差超出声明界 |
 | `06_sensor_sensitivity.ipynb` | 传感器/海流图等级敏感性：各声明误差界 → 最长可认证桥长 |
+| `07_fixed_speed_and_A1.ipynb` | A1 逐项检查；与固定航速 ILOS、只入口检查、入口+调速的对比 |
 | `bridge_sim/core.py` | 从主 notebook 原样拷贝的方法代码（不修改） |
 | `bridge_sim/fast.py` | 船模导数的等价加速（结果逐位一致） |
 | `bridge_sim/ext.py` | 实验扩展：可替换导航器/误差管的闭环、随机场景、事后“能过”标注、EKF 3σ 与纯 INS 误差管 |
@@ -18,9 +19,9 @@
 | `figures/` | 新实验的图（PNG + PDF） |
 | `tools/make_0*.py` | 生成 notebook 的脚本 |
 
-运行：`pip install numpy pandas matplotlib jupyter`，然后依次执行 01 → 02 → 03（03 读取 01 的结果）。
+运行：`pip install numpy pandas matplotlib jupyter`，然后依次执行 01 → 07（03、05、07 读取 01 的结果）。
 `results/` 中已有 CSV 时 notebook 直接读取；删掉对应 CSV 即重新仿真（4 核约 3 小时）。
 
-**统一参数**（2026-11-08 起）：海图配准 0.08 m（真实误差项）、采样保护 0.02 m（船体点横向速度上限 0.83 m/s × 0.02 s）、无额外安全余量；入口裕度阈值 0.02 m（最佳航速预测裕度 ≥ 0.02 m 才放行）。旧参数的首轮结果保存在 `results/legacy_2026-11-07/`。
+**统一参数**（2026-11-08 起）：海图配准 0.08 m（真实误差项）、采样保护 0.02 m（船体点横向速度上限 0.83 m/s × 0.02 s）、无额外安全余量；入口裕度阈值 0.02 m（最佳航速预测裕度 ≥ 0.02 m 才放行）。横荡水相对速度误差界 0.015 m/s（07 实测最大 0.0141；原 0.006 被实测 0.0119 违反，旧结果在 `results/legacy_2026-11-08_sway0.006/`）。旧参数的首轮结果保存在 `results/legacy_2026-11-07/`。
 
 所有实验使用同一组误差界参数（`bridge_sim/core.py: Config`），不按案例调整；对比只改方法，世界、种子、初态相同。

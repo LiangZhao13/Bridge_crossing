@@ -48,7 +48,7 @@ class Config:
     gyro_bound: float = 0.0008
     speed_error_floor: float = 0.004       # surge speed error bound = floor + ratio * speed
     speed_error_ratio: float = 0.017
-    speed_error_lateral: float = 0.006     # sway speed error bound
+    speed_error_lateral: float = 0.015     # sway speed error bound (max observed in blind phase 0.0119, notebook 07)
     water_speed_margin: float = 0.20       # |water speed| <= transit speed + margin
     current_north_error_bound: float = 0.010   # background current, North
     current_east_error_bound: float = 0.015    # background current, East

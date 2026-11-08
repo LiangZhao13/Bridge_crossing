@@ -12,7 +12,7 @@ curve,length,rate,lo,hi,k,n
 Filter accept (proposed),11.0,1.0,0.8864829086095221,1.0,30,30
 Filter accept (proposed),15.0,1.0,0.8864829086095221,1.0,30,30
 Filter accept (proposed),19.0,1.0,0.8864829086095221,1.0,30,30
-Filter accept (proposed),23.0,0.06666666666666667,0.01847663532769335,0.21323817721072091,2,30
+Filter accept (proposed),23.0,0.0,0.0,0.113517091390478,0,30
 Filter accept (proposed),27.0,0.0,0.0,0.113517091390478,0,30
 Filter accept (proposed),31.0,0.0,0.0,0.113517091390478,0,30
 Filter accept (proposed),35.0,0.0,0.0,0.113517091390478,0,30

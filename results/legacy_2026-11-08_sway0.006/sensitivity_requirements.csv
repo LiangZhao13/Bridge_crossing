@@ -1,0 +1,5 @@
+,15 m,19 m,25 m,31 m
+Gyro bias bound (rad/s),0.003,0.002,,
+Speed-error bound (x nominal),3.0,1.5,,
+Jet amplitude error bound (m/s),0.3,0.22,0.15,0.1
+Background-current error bound (x nominal),3.0,2.0,,

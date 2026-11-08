@@ -304,7 +304,7 @@ def make_bound(kind, c, imu=None):
 
 def run_case_ext(c, truth_spec, strategy="ilos", gnss_always=False, fixed_gate_speed=None,
                  bypass_filter=False, gyro_bias=0.00055, nav="model", bound_kind="box",
-                 imu=None, accel_bias=(0., 0.), stop_after_gate=False):
+                 imu=None, accel_bias=(0., 0.), stop_after_gate=False, online_filter=True):
     """core.run_case with swappable gyro bias, navigator and bound law.
     nav: "model" (core.Navigator) or "ins" (InsNavigator, needs imu)
     bound_kind: "box" (core.ErrorBound), "ekf" (GaussianBound 3-sigma), "ins" (InsBound)."""
@@ -371,7 +371,7 @@ def run_case_ext(c, truth_spec, strategy="ilos", gnss_always=False, fixed_gate_s
                         ev['transit_speed'] = speed_g
                         guide.speed = speed_g
                         bound.speed = speed_g
-                    phase = 'transit' if ok else 'abort'
+                    phase = ('transit' if online_filter else 'unfiltered_transit') if ok else 'abort'
                     if stop_after_gate:
                         break
 
@@ -545,6 +545,10 @@ METHODS = {
     'ekf3s':    dict(strategy='filtered', bound_kind='ekf'),                # EKF 3-sigma filter
     'ins':      dict(strategy='filtered', nav='ins', bound_kind='ins'),     # pure INS + filter, 2 mg
     'ins_1mg':  dict(strategy='filtered', nav='ins', bound_kind='ins', imu=ImuSpec(accel_bias_bound=0.0098)),
+    # ablations of the proposed method (notebook 07)
+    'gate_speed':  dict(strategy='filtered', online_filter=False),                 # gate + speed selection, plain ILOS after
+    'gate_fix15':  dict(strategy='filtered', fixed_gate_speed=1.5, online_filter=False),  # gate at 1.5 m/s only, plain ILOS
+    'gate_fix15f': dict(strategy='filtered', fixed_gate_speed=1.5),               # gate at 1.5 m/s + online filter
 }
 
 
@@ -665,3 +669,27 @@ def closed_loop_check(s):
     return dict(length=s.length, admitted=r['admitted'], completed=r['completed'], collided=r['collided'],
                 min_clearance=r['min_clearance'], cov_N=r['cov_ratio_N'], cov_E=r['cov_ratio_E'],
                 cov_heading=r['cov_ratio_heading'], cov_E_blind=r['cov_ratio_E_blind'])
+
+
+def a1_check(s):
+    """Per-term check of assumption A1 on one closed-loop run of the proposed filter, over the
+    GNSS-blind phase: water-relative surge / sway velocity error of the model-aided navigator,
+    and heading error, against the declared bounds."""
+    c, ts = make_case(s)
+    d = run_case_ext(c, ts, 'filtered', gyro_bias=s.gyro_bias)
+    blind = d['quality'] != 'good'
+    if not blind.any():
+        return dict(length=s.length, admitted=d['admitted'], blind=False)
+    tf, mf = CurrentField(c, ts), CurrentField(c)
+    U = d['transit_speed']
+    su, sv = [], []
+    for z, e, t in zip(d['truth'][blind], d['estimate'][blind], d['t'][blind]):
+        ct = body_velocity(tf.at(z[3], t)[0], z[5])
+        ce = body_velocity(mf.at(e[3], t)[0], e[5])
+        su.append(abs((z[0] - ct[0]) - (e[0] - ce[0])))
+        sv.append(abs((z[1] - ct[1]) - (e[1] - ce[1])))
+    hd = np.abs((d['truth'][blind, 5] - d['estimate'][blind, 5] + np.pi) % (2*np.pi) - np.pi)
+    return dict(length=s.length, admitted=bool(d['admitted']), blind=True, transit_speed=U,
+                surge_err=max(su), surge_bound=c.speed_error_floor + c.speed_error_ratio*U,
+                sway_err=max(sv), sway_bound=c.speed_error_lateral,
+                heading_err=float(hd.max()), heading_bound=float(d['heading_bound'][blind].max()))
