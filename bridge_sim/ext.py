@@ -444,6 +444,7 @@ class Scenario:
     accel_bias_n: float = 0.0     # used only by the INS navigator (fraction of declared bound)
     accel_bias_e: float = 0.0
     variant: str = 'base'         # key of VARIANTS
+    cfg_overrides: tuple = ()     # extra Config overrides as ((name, value), ...), e.g. declared bounds
 
 
 DEFAULT_SCENARIO = Scenario(seed=42)
@@ -469,6 +470,8 @@ def sample_scenario(rng, seed, length=19.0, width=8.0):
 def make_case(s, base=BASE_CFG):
     v = VARIANTS[getattr(s, 'variant', 'base')]
     base = replace(base, **v['cfg'])
+    if getattr(s, 'cfg_overrides', ()):
+        base = replace(base, **dict(s.cfg_overrides))
     c = replace(base, seed=s.seed, mapped_current_north=s.mapped_current_north,
                 mapped_current_east=s.mapped_current_east, jet_amplitude=s.jet_amplitude)
     c = bridge_case(c, s.length, s.width)
@@ -645,3 +648,20 @@ def gate_and_oracle(s, bound_kinds=('box', 'ekf'), with_oracle=True):
 def ins_gate(s, accel_mg):
     g = gate_check(s, nav='ins', bound_kind='ins', imu=ImuSpec(accel_bias_bound=accel_mg*0.0098))
     return dict(length=s.length, width=s.width, accel_mg=accel_mg, **g)
+
+
+def gate_and_check(s):
+    """Gate decision for the proposed filter; if admitted, also run the closed loop once to
+    check that the (re-declared) bound still covers the true error and nothing hits the wall."""
+    g = gate_check(s)
+    row = dict(length=s.length, admitted=g['admitted'], entry_margin=g['entry_margin'], speed=g['speed'])
+    return row
+
+
+def closed_loop_check(s):
+    c, ts = make_case(s)
+    d = run_case_ext(c, ts, 'filtered', gyro_bias=s.gyro_bias)
+    r = summarize(d, c)
+    return dict(length=s.length, admitted=r['admitted'], completed=r['completed'], collided=r['collided'],
+                min_clearance=r['min_clearance'], cov_N=r['cov_ratio_N'], cov_E=r['cov_ratio_E'],
+                cov_heading=r['cov_ratio_heading'], cov_E_blind=r['cov_ratio_E_blind'])

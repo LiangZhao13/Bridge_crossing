@@ -8,6 +8,7 @@
 | `03_baselines.ipynb` | 对照组：EKF 3σ 裕度安全滤波、纯 INS 推算 + 安全滤波；INS 器件等级扫描 |
 | `04_margins_and_tight_bound.ipynb` | 余量消融与误差界收紧（以统一参数为基准）；最坏世界中本文方法与 EKF 3σ 的闭环 |
 | `05_assumption_violated.ipynb` | 假设被违反：真实射流误差超出声明界 |
+| `06_sensor_sensitivity.ipynb` | 传感器/海流图等级敏感性：各声明误差界 → 最长可认证桥长 |
 | `bridge_sim/core.py` | 从主 notebook 原样拷贝的方法代码（不修改） |
 | `bridge_sim/fast.py` | 船模导数的等价加速（结果逐位一致） |
 | `bridge_sim/ext.py` | 实验扩展：可替换导航器/误差管的闭环、随机场景、事后“能过”标注、EKF 3σ 与纯 INS 误差管 |

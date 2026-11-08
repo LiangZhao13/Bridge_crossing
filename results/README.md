@@ -24,6 +24,9 @@
 | `variants_worst_world.csv`, `variants_worst_world_summary.csv` | 04 | 3 种设置 × 9 个桥长 × 8 个最坏世界：filter / ekf3s / oracle 闭环及汇总 |
 | `violation_worst_world.csv`, `violation_worst_world_summary.csv` | 05 | 射流误差 0.22–0.40 m/s × 5 个桥长 × 4 个最坏世界 |
 | `violation_random.csv`, `violation_random_summary.csv` | 05 | 01 B 部分前 120 个世界、射流误差放大 2 倍：filter / ekf3s / ilos07 / oracle |
+| `sensitivity_gate.csv` | 06 | 4 类误差界 × 扫描值 × 桥长 9–51 m 的入口认证 |
+| `sensitivity_check.csv` | 06 | 每个设置在最长认证桥长上的闭环检查（覆盖率、撞墙、认证丢失） |
+| `sensitivity_requirements.csv` | 06 | 认证 15/19/25/31 m 所需的各项误差界上限 |
 | `legacy_2026-11-07/` | — | 旧参数（采样保护 0.05、安全余量 0.15）的首轮结果，见其中 NOTE.md |
 
 设置在 `bridge_sim/ext.py: VARIANTS`；`variant` 列记录每行用的设置（缺省为 base，即统一参数）。
