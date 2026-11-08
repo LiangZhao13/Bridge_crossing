@@ -6,7 +6,8 @@
 | `01_monte_carlo.ipynb` | Monte Carlo：随机入口状态与海流；错误放行率、误拒率、通过率、误差界覆盖率、认证丢失率 |
 | `02_length_sweep.ipynb` | 桥长扫描（8 m 宽）：能过比例、滤波器放行率/撞墙率、ILOS 成功率、EKF 3σ 放行率/撞墙率同图；桥宽 × 桥长认证图 |
 | `03_baselines.ipynb` | 对照组：EKF 3σ 裕度安全滤波、纯 INS 推算 + 安全滤波；INS 器件等级扫描 |
-| `04_margins_and_tight_bound.ipynb` | 去掉额外余量、收紧误差界后重跑：最坏世界中 EKF 3σ 撞墙，本文方法不撞 |
+| `04_margins_and_tight_bound.ipynb` | 余量消融与误差界收紧（以统一参数为基准）；最坏世界中本文方法与 EKF 3σ 的闭环 |
+| `05_assumption_violated.ipynb` | 假设被违反：真实射流误差超出声明界 |
 | `bridge_sim/core.py` | 从主 notebook 原样拷贝的方法代码（不修改） |
 | `bridge_sim/fast.py` | 船模导数的等价加速（结果逐位一致） |
 | `bridge_sim/ext.py` | 实验扩展：可替换导航器/误差管的闭环、随机场景、事后“能过”标注、EKF 3σ 与纯 INS 误差管 |
@@ -18,5 +19,7 @@
 
 运行：`pip install numpy pandas matplotlib jupyter`，然后依次执行 01 → 02 → 03（03 读取 01 的结果）。
 `results/` 中已有 CSV 时 notebook 直接读取；删掉对应 CSV 即重新仿真（4 核约 3 小时）。
+
+**统一参数**（2026-11-08 起）：海图配准 0.08 m（真实误差项）、采样保护 0.02 m（船体点横向速度上限 0.83 m/s × 0.02 s）、无额外安全余量。旧参数的首轮结果保存在 `results/legacy_2026-11-07/`。
 
 所有实验使用同一组误差界参数（`bridge_sim/core.py: Config`），不按案例调整；对比只改方法，世界、种子、初态相同。

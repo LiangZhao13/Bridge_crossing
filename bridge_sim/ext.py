@@ -32,7 +32,7 @@ class ImuSpec:
     accel_max: declared bound on |horizontal acceleration| (couples heading error)."""
     accel_bias_bound: float = 0.0196      # 2 mg
     accel_noise_bound: float = 0.002
-    accel_max: float = 0.8               # max |a| seen after the gate in the main run is 0.73
+    accel_max: float = 1.2               # max |a| outside brake/retreat seen in 01-03 runs was 1.09
     velocity0: float = 0.02               # initial velocity error bound (m/s)
 
 
@@ -275,22 +275,18 @@ class TightBound(ErrorBound):
         self.heading += c.gyro_bound*dt
 
 
-# Experiment variants: margins removed and/or tightened bound. Applied to ALL methods alike.
-#   margins0: map_bound = sample_guard = safety_margin = 0, and the truth chart error
-#             (wall_shift) is set to 0 so that A1-A2 still hold without a chart margin.
-#   tight:    TightBound replaces ErrorBound for the proposed filter; water-speed margin
-#             0.20 -> 0.05 m/s (max water speed minus transit speed seen in the worst
-#             worlds is 0.012 m/s; checked again by coverage in notebook 04).
+# Experiment variants, all relative to the unified parameter set in core.Config
+# (chart registration 0.08 m, sample guard 0.02 m, no extra safety margin).
+#   legacy_margins: the earlier set (sample guard 0.05 m, safety margin 0.15 m).
+#   margins0: map_bound = sample_guard = 0 as well, with the truth chart error (wall_shift)
+#             set to 0 so that A1-A2 still hold without a chart term.
+#   tight:    TightBound for the proposed filter (local jet gradient) and water-speed
+#             margin 0.20 -> 0.05 m/s.
 VARIANTS = {
-    'base':          dict(cfg={}, tight=False, zero_wall=False),
-    'margins0':      dict(cfg=dict(map_bound=0., sample_guard=0., safety_margin=0.), tight=False, zero_wall=True),
-    'tight':         dict(cfg=dict(water_speed_margin=0.05), tight=True, zero_wall=False),
-    # candidate single parameter set for the whole paper: chart registration 0.08 m kept as a
-    # real error term (truth wall shift stays within it), sample guard = max hull-point lateral
-    # speed x prediction step (checked in notebook 05), no extra safety margin.
-    'unified':       dict(cfg=dict(sample_guard=0.02, safety_margin=0.), tight=False, zero_wall=False),
-    'tight_margins0': dict(cfg=dict(map_bound=0., sample_guard=0., safety_margin=0., water_speed_margin=0.05),
-                           tight=True, zero_wall=True),
+    'base':           dict(cfg={}, tight=False, zero_wall=False),
+    'legacy_margins': dict(cfg=dict(sample_guard=0.05, safety_margin=0.15), tight=False, zero_wall=False),
+    'margins0':       dict(cfg=dict(map_bound=0., sample_guard=0.), tight=False, zero_wall=True),
+    'tight':          dict(cfg=dict(water_speed_margin=0.05), tight=True, zero_wall=False),
 }
 
 

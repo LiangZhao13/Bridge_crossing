@@ -8,8 +8,8 @@ import math
 import numpy as np
 import pandas as pd
 
-# clearance the method itself budgets for (map 0.08 + sample guard 0.05 + safety 0.15)
-METHOD_BUDGET = 0.28
+# clearance the method itself budgets for (chart registration 0.08 + sample guard 0.02)
+METHOD_BUDGET = 0.10
 
 
 def wilson(k, n, z=1.96):

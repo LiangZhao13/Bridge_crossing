@@ -8,8 +8,6 @@ from pathlib import Path
 import numpy as np
 
 
-
-
 @dataclass(frozen=True)
 class Config:
     seed: int = 42
@@ -68,8 +66,8 @@ class Config:
     retreat_north: float = 2.0
     deadline_seconds: float = 28.0    # from the last GNSS fix at the gate
     map_bound: float = 0.08           # bridge chart registration error
-    safety_margin: float = 0.15
-    sample_guard: float = 0.05        # covers motion between 0.1 s prediction samples
+    safety_margin: float = 0.0        # no extra margin beyond the error terms (unified set)
+    sample_guard: float = 0.02        # max hull-point lateral speed (0.83 m/s) x 0.02 s prediction step
     min_progress_speed: float = 0.40  # required North ground speed in the rollout
     speed_candidates: tuple = (0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0)  # tried at the gate
 
@@ -761,9 +759,8 @@ def outcome(d):
     if d['admitted'] is False:
         return f"entry not certified (gate margin {d['entry_margin']:+.2f} m) -> braked and retreated"
     if d['completed']:
-        extra = f" (gate margin {d['entry_margin']:+.2f} m)" if np.isfinite(d['entry_margin']) else ""
-        if np.isfinite(d['entry_margin']):
-            extra = f" (certified at {d['transit_speed']:.1f} m/s, gate margin {d['entry_margin']:+.2f} m)"
+        extra = (f" (certified at {d['transit_speed']:.1f} m/s, gate margin {d['entry_margin']:+.2f} m)"
+                 if np.isfinite(d['entry_margin']) else "")
         return "passed the bridge" + extra
     return "simulation ended"
 
