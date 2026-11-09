@@ -1,0 +1,20 @@
+,A: known currents & entry state,A: known currents & entry state,A: known currents & entry state,B: + site-specific declared jet bound,B: + site-specific declared jet bound,B: + site-specific declared jet bound
+length,18.0,24.0,30.0,18.0,24.0,30.0
+N,40.0,40.0,40.0,60.0,60.0,60.0
+feasible,40.0,40.0,40.0,60.0,60.0,55.0
+infeasible,0.0,0.0,0.0,0.0,0.0,5.0
+"length rule (1.5 m/s, admit all): passed",40.0,40.0,40.0,60.0,59.0,53.0
+length rule: collided,0.0,0.0,0.0,0.0,1.0,7.0
+proposed: admitted,40.0,0.0,0.0,41.0,25.0,12.0
+proposed: passed,40.0,0.0,0.0,41.0,25.0,12.0
+proposed: collided,0.0,0.0,0.0,0.0,0.0,0.0
+proposed: admitted infeasible,0.0,0.0,0.0,0.0,0.0,0.0
+proposed: refused feasible,0.0,40.0,40.0,19.0,35.0,43.0
+proposed: AUC margin→feasible,,,,,,0.92
+EKF 3σ: admitted,40.0,40.0,40.0,60.0,52.0,39.0
+EKF 3σ: passed,40.0,40.0,40.0,60.0,52.0,39.0
+EKF 3σ: collided,0.0,0.0,0.0,0.0,0.0,0.0
+EKF 3σ: admitted infeasible,0.0,0.0,0.0,0.0,0.0,0.0
+EKF 3σ: refused feasible,0.0,0.0,0.0,0.0,8.0,16.0
+EKF 3σ: AUC margin→feasible,,,,,,0.9090909090909091
+"Spearman(proposed margin, best true clearance)",0.2352720450281426,0.04803001876172608,0.1103189493433396,0.8009447068630177,0.9080855793275913,0.8938038343984441

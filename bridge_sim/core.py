@@ -48,7 +48,8 @@ class Config:
     gyro_bound: float = 0.0008
     speed_error_floor: float = 0.004       # surge speed error bound = floor + ratio * speed
     speed_error_ratio: float = 0.017
-    speed_error_lateral: float = 0.015     # sway speed error bound (max observed in blind phase 0.0119, notebook 07)
+    speed_error_lateral: float = 0.015     # sway speed error bound without GNSS (max observed 0.0141, notebook 07)
+    speed_error_lateral_gnss: float = 0.025  # sway speed error bound while GNSS fixes arrive (manoeuvres; max observed 0.0208)
     water_speed_margin: float = 0.20       # |water speed| <= transit speed + margin
     current_north_error_bound: float = 0.010   # background current, North
     current_east_error_bound: float = 0.015    # background current, East
@@ -341,6 +342,13 @@ class ErrorBound:
     def heading_error(self):
         return self.heading
 
+    def lateral_speed_error(self):
+        # A1 is declared per phase: larger sway error while GNSS fixes still arrive (turn, speed
+        # change, re-acquisition), smaller once the last fix is older than one GNSS period.
+        c = self.c
+        gnss = self.age < c.gnss_period + .5*c.dt
+        return c.speed_error_lateral_gnss if gnss else c.speed_error_lateral
+
     def fuse(self, gain):
         # Coordinate-wise bounded GNSS noise from Sensors.sample, NOT covariance.
         self.north = (1-gain)*self.north + gain*.025
@@ -354,9 +362,10 @@ class ErrorBound:
         heading_part = (self.speed + c.water_speed_margin)*self.heading_error()
         # body-frame speed error projected on North/East (true heading within heading_est +- error)
         s_max = min(1., abs(math.sin(heading_est)) + self.heading_error())
-        d_north = surge_err + c.speed_error_lateral*s_max + heading_part + c.current_north_error_bound
+        lateral = self.lateral_speed_error()
+        d_north = surge_err + lateral*s_max + heading_part + c.current_north_error_bound
         jet = c.jet_amplitude_error_bound*jet_shape_max(north_est - self.north, north_est + self.north, c)
-        d_east = (surge_err*s_max + c.speed_error_lateral + heading_part + c.current_east_error_bound
+        d_east = (surge_err*s_max + lateral + heading_part + c.current_east_error_bound
                   + jet + c.jet_gradient_bound*self.north)
         self.north += dt*d_north
         self.east += dt*d_east
@@ -386,7 +395,6 @@ def closed_form_blind_limit(clearance_budget, delta0, epsilon_nu, delta_c0,
     else:
         limit=budget/b if b>0 else np.inf
     return limit,min_north_speed*limit
-
 
 class WaypointILOS:
     """Integral LOS on a piecewise-linear path. Cross-track error and the integral
@@ -641,7 +649,6 @@ class PredictiveSafetyFilter:
         if selected is not None:self.previous_force=selected.copy()
         return selected,mode,best
 
-
 def run_case(c, truth_spec, strategy="ilos", gnss_always=False, fixed_gate_speed=None, bypass_filter=False):
     """Closed loop: true plant + sensors -> navigator -> guidance (+ safety filter) -> thrusters.
     strategy: "ilos"     waypoint ILOS only
@@ -773,4 +780,3 @@ def thrust_metrics(d):
     return dict(total_variation_N=float(np.abs(change).sum()),
                 max_step_N=float(np.abs(change).max()) if change.size else 0.,
                 rms_step_N=float(np.sqrt(np.mean(change**2))) if change.size else 0.)
-

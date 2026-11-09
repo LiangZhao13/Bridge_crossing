@@ -221,7 +221,7 @@ class GaussianBound(ErrorBound):
         co, si = math.cos(heading_est), math.sin(heading_est)
         shape, grad = jet_shape(north_est, c)
         su = (c.speed_error_floor + c.speed_error_ratio*U)/3.     # 1-sigma = declared bound / 3
-        sv = c.speed_error_lateral/3.
+        sv = self.lateral_speed_error()/3.
         scn, sce = c.current_north_error_bound/3., c.current_east_error_bound/3.
         sj, sg = c.jet_amplitude_error_bound/3., c.gyro_bound/3.
         Phi = np.eye(self.NX)
@@ -264,10 +264,11 @@ class TightBound(ErrorBound):
         surge_err = c.speed_error_floor + c.speed_error_ratio*self.speed
         heading_part = (self.speed + c.water_speed_margin)*self.heading_error()
         s_max = min(1., abs(math.sin(heading_est)) + self.heading_error())
-        d_north = surge_err + c.speed_error_lateral*s_max + heading_part + c.current_north_error_bound
+        lateral = self.lateral_speed_error()
+        d_north = surge_err + lateral*s_max + heading_part + c.current_north_error_bound
         lo, hi = north_est - self.north, north_est + self.north
         jet = c.jet_amplitude_error_bound*jet_shape_max(lo, hi, c)
-        d_east = (surge_err*s_max + c.speed_error_lateral + heading_part + c.current_east_error_bound
+        d_east = (surge_err*s_max + lateral + heading_part + c.current_east_error_bound
                   + jet + self.local_gradient(lo, hi)*self.north)
         self.north += dt*d_north
         self.east += dt*d_east
@@ -465,6 +466,30 @@ def sample_scenario(rng, seed, length=19.0, width=8.0):
                     initial_cross_track=u(-0.5, 0.5), initial_heading_error=u(-0.10, 0.10),
                     gyro_bias=u(-0.00055, 0.00055),
                     accel_bias_n=u(-1., 1.), accel_bias_e=u(-1., 1.))
+
+
+def sample_same_geometry(rng, seed, length, width=8.0, declared_jet=None):
+    """Notebook 08: worlds that share one bridge (length, width) and differ in what the boat KNOWS
+    (mapped background current and jet, entry cross-track / heading) and in the unknown errors.
+    declared_jet=None: the declared jet-error bound stays 0.22 and the true jet error is U[-0.22, 0.22].
+    declared_jet=(lo, hi): each world has its own declared bound B ~ U[lo, hi] (site-specific chart
+    quality, known to the method) and a true jet error of +-B*U[0.6, 1.0] (inside its own bound).
+    All other unknown errors stay inside the declared bounds."""
+    u = rng.uniform
+    if declared_jet is None:
+        B, je, over = 0.22, u(-0.22, 0.22), ()
+    else:
+        B = u(*declared_jet)
+        je = B*u(0.6, 1.0)*rng.choice((-1., 1.))
+        over = (('jet_amplitude_error_bound', float(B)),)
+    return Scenario(seed=int(seed), length=float(length), width=float(width),
+                    mapped_current_north=u(0.0, 0.05), mapped_current_east=u(0.0, 0.20),
+                    jet_amplitude=u(0.0, 0.50), jet_amplitude_error=float(je),
+                    current_north_bias=u(-0.008, 0.008), current_east_bias=u(-0.010, 0.010),
+                    tide_amplitude=u(0.0, 0.004), tide_frequency=u(0.02, 0.08),
+                    wall_shift=u(-0.08, 0.08),
+                    initial_cross_track=u(-1.0, 1.0), initial_heading_error=u(-0.15, 0.15),
+                    gyro_bias=u(-0.00055, 0.00055), cfg_overrides=over)
 
 
 def make_case(s, base=BASE_CFG):
@@ -672,24 +697,42 @@ def closed_loop_check(s):
 
 
 def a1_check(s):
-    """Per-term check of assumption A1 on one closed-loop run of the proposed filter, over the
-    GNSS-blind phase: water-relative surge / sway velocity error of the model-aided navigator,
-    and heading error, against the declared bounds."""
+    """Per-term check of assumption A1 on one closed-loop run of the proposed filter, from the
+    gate decision to the end of the run, every 0.02 s: water-relative surge / sway velocity error
+    of the model-aided navigator and heading error, each divided by the bound valid AT THAT TIME
+    (sway: GNSS-phase or no-GNSS bound, chosen exactly as in ErrorBound). Ratios are the max over
+    time of error/bound, reported separately for the GNSS-blind part and the GNSS-available part."""
     c, ts = make_case(s)
     d = run_case_ext(c, ts, 'filtered', gyro_bias=s.gyro_bias)
-    blind = d['quality'] != 'good'
-    if not blind.any():
-        return dict(length=s.length, admitted=d['admitted'], blind=False)
+    t = d['t']
+    if not np.isfinite(d['gate_time']):
+        return dict(length=s.length, admitted=False, blind=False)
+    post = t >= d['gate_time']
+    blind = (d['quality'] != 'good') & post
     tf, mf = CurrentField(c, ts), CurrentField(c)
     U = d['transit_speed']
-    su, sv = [], []
-    for z, e, t in zip(d['truth'][blind], d['estimate'][blind], d['t'][blind]):
-        ct = body_velocity(tf.at(z[3], t)[0], z[5])
-        ce = body_velocity(mf.at(e[3], t)[0], e[5])
+    # bound age replay: last time a GNSS fix was fused (quality good at a GNSS tick)
+    good = d['quality'] == 'good'
+    su, sv, svb = [], [], []
+    last_fix = -1e9
+    for k, (z, e, tt) in enumerate(zip(d['truth'], d['estimate'], t)):
+        tick = abs(tt/c.gnss_period - round(tt/c.gnss_period)) < 1e-7
+        if tick and good[k]:
+            last_fix = tt
+        ct = body_velocity(tf.at(z[3], tt)[0], z[5])
+        ce = body_velocity(mf.at(e[3], tt)[0], e[5])
         su.append(abs((z[0] - ct[0]) - (e[0] - ce[0])))
         sv.append(abs((z[1] - ct[1]) - (e[1] - ce[1])))
-    hd = np.abs((d['truth'][blind, 5] - d['estimate'][blind, 5] + np.pi) % (2*np.pi) - np.pi)
-    return dict(length=s.length, admitted=bool(d['admitted']), blind=True, transit_speed=U,
-                surge_err=max(su), surge_bound=c.speed_error_floor + c.speed_error_ratio*U,
-                sway_err=max(sv), sway_bound=c.speed_error_lateral,
-                heading_err=float(hd.max()), heading_bound=float(d['heading_bound'][blind].max()))
+        svb.append(c.speed_error_lateral_gnss if tt - last_fix < c.gnss_period + .5*c.dt else c.speed_error_lateral)
+    su, sv, svb = np.array(su), np.array(sv), np.array(svb)
+    sb = c.speed_error_floor + c.speed_error_ratio*U
+    hd = np.abs((d['truth'][:, 5] - d['estimate'][:, 5] + np.pi) % (2*np.pi) - np.pi)
+    hr = hd/d['heading_bound']
+    gn = post & ~blind
+    m = lambda a, w: float(a[w].max()) if w.any() else np.nan
+    return dict(length=s.length, admitted=bool(d['admitted']), blind=bool(blind.any()), transit_speed=U,
+                surge_err_blind=m(su, blind), surge_err_gnss=m(su, gn), surge_bound=sb,
+                sway_err_blind=m(sv, blind), sway_err_gnss=m(sv, gn),
+                sway_ratio_blind=m(sv/svb, blind), sway_ratio_gnss=m(sv/svb, gn),
+                sway_bound_blind=c.speed_error_lateral, sway_bound_gnss=c.speed_error_lateral_gnss,
+                heading_ratio_blind=m(hr, blind), heading_ratio_gnss=m(hr, gn))

@@ -27,11 +27,11 @@
 | `sensitivity_gate.csv` | 06 | 4 类误差界 × 扫描值 × 桥长 9–51 m 的入口认证 |
 | `sensitivity_check.csv` | 06 | 每个设置在最长认证桥长上的闭环检查（覆盖率、撞墙、认证丢失） |
 | `sensitivity_requirements.csv` | 06 | 认证 15/19/25/31 m 所需的各项误差界上限 |
-| `a1_check.csv` | 07 | 60 次放行运行的盲段：纵荡/横荡水相对速度误差、艏向误差与其声明界（A1 逐项检查） |
+| `a1_check.csv` | 07 | 59 个放行算例（51 个进入盲段）从入口到结束逐时刻的纵荡/横荡/艏向误差与当时有效的界之比（A1 逐项检查） |
 | `compare_boundary_random.csv` | 07 | 120 个随机边界世界（L~U[17,27]）：固定航速 ILOS、只入口检查、入口+调速、完整方法 |
 | `compare_worst_world.csv` | 07 | 最坏世界 8 个 × 桥长 15–39 m：同上各策略 |
 | `compare_summary.csv` | 07 | 上两组的汇总表 |
-| `legacy_2026-11-08_sway0.006/` | — | 横荡速度误差界 0.006 m/s（违反 A1）时的全部结果，见其中 NOTE.md |
-| `legacy_2026-11-07/` | — | 旧参数（采样保护 0.05、安全余量 0.15）的首轮结果，见其中 NOTE.md |
+| `same_geometry_A.csv`, `same_geometry_B.csv` | 08 | 8 m 宽、桥长 18/24/30 m：A 组改变已知海流与入口状态，B 组另有各桥位声明射流误差界；filter / ekf3s / oracle |
+| `same_geometry_summary.csv` | 08 | 每个桥长上桥长门槛、本文方法、EKF 3σ 的放行与撞墙汇总 |
 
 设置在 `bridge_sim/ext.py: VARIANTS`；`variant` 列记录每行用的设置（缺省为 base，即统一参数）。
