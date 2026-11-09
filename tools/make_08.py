@@ -98,6 +98,26 @@ print('Group A'); display(tA.round(3))
 print('Group B'); display(tB.round(3))
 """),
 ('md', r"""
+### B 组的更简单基线：按声明射流误差界设门槛
+
+“固定 1.5 m/s + 声明射流误差界 ≤ 门槛才进”。门槛是在本批数据上事后选的，只用来说明声明误差界本身带多少决策信息。
+"""),
+('code', r"""
+ok15 = B['oracle_clear_1.5'] > 0
+rows = []
+for thr in (0.10, 0.15, 0.20, 0.22, 0.25, 0.30):
+    r = B.declared_jet <= thr
+    rows.append(dict(rule=f'1.5 m/s if declared jet bound <= {thr:.2f}', passed=int((r & ok15).sum()), collided=int((r & ~ok15).sum()),
+                     min_clearance=B.loc[r & ok15, 'oracle_clear_1.5'].min()))
+for m, name in (('filter', 'proposed'), ('ekf3s', 'EKF 3σ')):
+    adm = B[m + '_admitted'].fillna(False).astype(bool); col = B[m + '_collided'].astype(bool)
+    rows.append(dict(rule=name, passed=int((adm & ~col).sum()), collided=int(col.sum()), min_clearance=B.loc[adm, m + '_min_clearance'].min()))
+display(pd.DataFrame(rows).set_index('rule').round(3))
+g = B[B.length == 30.0]; feas = g.oracle_best_clearance > 0
+print('30 m: infeasible', int((~feas).sum()), '| AUC declared bound only', round(auc(-g.declared_jet, feas), 3),
+      '| AUC proposed entry margin', round(auc(g.filter_entry_margin, feas), 3))
+"""),
+('md', r"""
 ## 2. 哪些已知量决定了放行？哪些未知量决定了结果？
 
 对每个桥长分别计算入口裕度、真实最佳间隙与各变量的 Spearman 相关。
@@ -158,11 +178,12 @@ plt.show()
 | 本文方法 放行 / 撞墙 | 41 / 0 | 25 / 0 | 12 / 0 |
 | EKF 3σ 放行 / 撞墙 | 60 / 0 | 52 / 0 | 39 / 0 |
 
-- 只看桥长的规则要做到 0 撞墙，只能在 18 m 放行（通过 60 次）；本文方法在三个桥长上 0 撞墙、通过 78 次，在 24、30 m 仍能放行海流图精度高的桥。
-- 入口裕度与真实最佳间隙的 Spearman 相关 0.80～0.91；30 m 上以入口裕度区分能过/不可通过的 AUC 为 0.92。放行与否主要由声明界 B 决定（−0.97～−0.98）。
+- 同几何下，声明误差界改变了放行决策：本文方法在 24、30 m 仍放行海流图精度高的桥，拒绝了全部 5 个不可通过的世界，三个桥长合计 0 撞墙、通过 78 次，最小间隙 1.13 m。只看桥长的规则要做到 0 撞墙只能在 18 m 放行（通过 60 次）。
+- 更简单的基线也很强：“固定 1.5 m/s + 声明射流误差界 ≤ 0.22 才进”通过 95 次、0 撞墙，最小间隙 0.98 m；门槛放宽到 0.25 仍 0 撞墙、通过 117 次，最小间隙 0.35 m（门槛为事后选取）。
+- 30 m 上只有 5 个不可通过样本；单用声明误差界排序的 AUC 为 0.90，本文方法入口裕度为 0.92。入口裕度与真实最佳间隙的 Spearman 相关 0.80～0.91，放行与否主要由声明界 B 决定（−0.97～−0.98）。
 - EKF 3σ 在 B 组同样 0 撞墙且放行更多（151 次），因为这里的真实误差都在声明界内、并且最多用到 1.0 倍。它的弱点在误差取到界上或超界时（04、05）。
 
-**结论**：误差盒相对桥长门槛的价值，在于把**每座桥已知的不确定度**（海流图质量、传感器等级）换算成放行决策；当不确定度固定、只改变已知海流和入口状态时，它没有比桥长门槛更好，反而更保守。论文应如实写这一点，并把“海流图质量不同的桥位”作为误差盒的主要适用场景。
+**结论**：同几何下，桥位的声明误差界会改变放行决策，误差界本身有决策价值。本文方法相对简单的误差界门槛，增益不在通过次数（78 对 95），而在不需要事后标定门槛、并留出更大的间隙；通行次数与间隙之间存在取舍。声明误差界相同时，误差盒不比桥长门槛更会区分（A 组）。
 
 """),
 ]
